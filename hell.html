@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>park의 첫 웹사이트</title>
+    <style>
+        body {
+            background-color: #111;
+            color: white;
+            text-align: center;
+            font-family: Arial;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 id="title">안녕 👋 나는 park</h1>
+    <p>웹 개발 시작 🔥</p>
+    <button onclick="changeText()">눌러봐</button>
+
+    <script>
+        function changeText() {
+            document.getElementById("title").innerText = "미래의 AI 개발자 😎";
+        }
+    </script>
+
+</body>
+</html>
