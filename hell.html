@@ -1,34 +1,421 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <title>park의 첫 웹사이트</title>
-    <style>
-        body {
-            background-color: #111;
-            color: white;
-            text-align: center;
-            font-family: Arial;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stair Climber</title>
+
+  <!-- (선택) 옛날 게임 느낌 폰트: 인터넷 연결되면 적용됨 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --ui-pad: 16px; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: "Press Start 2P", system-ui, -apple-system, "Segoe UI", Arial, monospace;
+    }
+
+    #game {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+
+    /* UI */
+    .hud {
+      position: fixed;
+      top: var(--ui-pad);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(520px, calc(100vw - 2*var(--ui-pad)));
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .timeBarOuter {
+      width: 100%;
+      height: 18px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.22);
+      overflow: hidden;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.4) inset;
+    }
+
+    .timeBarInner {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.35));
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.12);
+      transform-origin: left center;
+    }
+
+    .scoreLine {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.95;
+    }
+
+    /* Buttons */
+    .controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      pointer-events: auto;
+      user-select: none;
+    }
+
+    .btn {
+      width: min(240px, 44vw);
+      height: 74px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(180deg, rgba(190,190,190,0.9), rgba(110,110,110,0.85));
+      box-shadow:
+        0 10px 20px rgba(0,0,0,0.55),
+        0 2px 0 rgba(255,255,255,0.25) inset,
+        0 -8px 18px rgba(0,0,0,0.35) inset;
+      color: #111;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow:
+        0 7px 14px rgba(0,0,0,0.55),
+        0 2px 0 rgba(255,255,255,0.20) inset,
+        0 -10px 22px rgba(0,0,0,0.45) inset;
+    }
+
+    .btnLabel {
+      display: block;
+      font-size: 10px;
+      opacity: 0.85;
+      margin-top: 6px;
+    }
+
+    /* Game Over Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #fff;
+      padding: 20px;
+    }
+    .overlay.show { display: flex; }
+    .overlay h1 { margin: 0 0 18px; font-size: 22px; }
+    .overlay p { margin: 0 0 18px; font-size: 12px; opacity: 0.95; }
+    .overlay .small { font-size: 10px; opacity: 0.8; }
+    .overlay button {
+      margin-top: 14px;
+      pointer-events: auto;
+      width: min(280px, 70vw);
+      height: 58px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(180,180,180,0.85));
+      font-family: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
+  <canvas id="game"></canvas>
 
-    <h1 id="title">안녕 👋 나는 park</h1>
-    <p>웹 개발 시작 🔥</p>
-    <button onclick="changeText()">눌러봐</button>
+  <div class="hud">
+    <div class="timeBarOuter">
+      <div id="timeBar" class="timeBarInner"></div>
+    </div>
+    <div class="scoreLine">SCORE: <span id="score">0</span></div>
+  </div>
 
-    <script>
-        function changeText() {
-            document.getElementById("title").innerText = "미래의 AI 개발자 😎";
-        }
-    </script>
+  <div class="controls">
+    <button id="btnTurn" class="btn">
+      TURN
+      <span class="btnLabel">(방향 전환해서 올라감)</span>
+    </button>
 
+    <button id="btnForward" class="btn">
+      FORWARD
+      <span class="btnLabel">(앞으로 올라감)</span>
+    </button>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div>
+      <h1>GAME OVER</h1>
+      <p>YOUR SCORE: <span id="finalScore">0</span></p>
+      <div class="small">R 키 또는 아래 버튼으로 다시 시작</div>
+      <button id="restartBtn">RESTART</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ========= Canvas Setup =========
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  function resize() {
+    canvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+    canvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ========= UI =========
+  const timeBar = document.getElementById("timeBar");
+  const scoreEl = document.getElementById("score");
+  const overlay = document.getElementById("overlay");
+  const finalScoreEl = document.getElementById("finalScore");
+  const restartBtn = document.getElementById("restartBtn");
+
+  // ========= Game Rules =========
+  const VISIBLE_STEPS = 10;       // 한 번에 보이는 계단 수
+  const FORWARD_RATIO = 0.70;     // 앞으로 갈 확률 70%
+  const BASE_TIME = 12.0;         // 시작 시간(초)
+  const TIME_CAP = 99.0;          // 너무 커지는 걸 방지(원하면 지워도 됨)
+
+  // 계단 크기(화면에 맞게 자동으로 느낌 유지)
+  function stepSize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const stepH = Math.max(22, Math.min(44, Math.floor(h * 0.06)));
+    const stepW = Math.max(70, Math.min(140, Math.floor(w * 0.18)));
+    return { stepW, stepH };
+  }
+
+  // ========= State =========
+  let score = 0;
+  let timeLeft = BASE_TIME;
+  let timeTotal = BASE_TIME;
+
+  // direction: +1 = 오른쪽으로, -1 = 왼쪽으로
+  // step object: { x, y, w, h, dir }  dir은 "이 계단에서 다음 계단으로 갈 때"의 방향
+  let steps = [];
+  let player = { x: 0, y: 0, r: 14 };
+
+  // 현재 진행 방향(플레이어가 "forward" 누르면 유지 / "turn" 누르면 반전)
+  let currentDir = +1;
+
+  // ========= Helpers =========
+  function randBool(pTrue) { return Math.random() < pTrue; }
+
+  function centerX() { return window.innerWidth / 2; }
+  function baseY() { return window.innerHeight * 0.78; }
+
+  function buildInitialSteps() {
+    const { stepW, stepH } = stepSize();
+    steps = [];
+    score = 0;
+    scoreEl.textContent = score;
+
+    timeLeft = BASE_TIME;
+    timeTotal = BASE_TIME;
+
+    currentDir = +1;
+
+    // 첫 계단(맨 아래)
+    let x = centerX() - stepW / 2;
+    let y = baseY();
+
+    // 앞으로(유지) / 방향전환(반전) 패턴을 확률로 만들기
+    // 여기서의 dir은 "이 계단에서 다음 계단으로 진행할 방향"
+    let dir = currentDir;
+
+    for (let i = 0; i < VISIBLE_STEPS; i++) {
+      steps.push({ x, y, w: stepW, h: stepH, dir });
+
+      // 다음 계단 만들기
+      // 70%는 같은 방향 유지, 30%는 방향 반전
+      if (!randBool(FORWARD_RATIO)) dir *= -1;
+
+      // 다음 계단 위치: 위로 + 옆으로 조금
+      x += dir * (stepW * 0.62);
+      y -= stepH * 1.1;
+
+      // 너무 화면 밖으로 나가면 반대쪽으로 강제 전환
+      if (x < 20) { x = 20; dir = +1; }
+      if (x + stepW > window.innerWidth - 20) { x = window.innerWidth - 20 - stepW; dir = -1; }
+    }
+
+    // 플레이어는 맨 아래 계단 위에 둠
+    const first = steps[0];
+    player.r = Math.max(12, Math.min(18, Math.floor(stepH * 0.42)));
+    player.x = first.x + first.w / 2;
+    player.y = first.y - player.r - 2;
+
+    overlay.classList.remove("show");
+  }
+
+  function addNewTopStep() {
+    const { stepW, stepH } = stepSize();
+    const last = steps[steps.length - 1];
+
+    // 마지막 계단의 dir을 기준으로 다음 dir 결정 (70% 유지)
+    let dir = last.dir;
+    if (!randBool(FORWARD_RATIO)) dir *= -1;
+
+    let x = last.x + dir * (stepW * 0.62);
+    let y = last.y - stepH * 1.1;
+
+    if (x < 20) { x = 20; dir = +1; }
+    if (x + stepW > window.innerWidth - 20) { x = window.innerWidth - 20 - stepW; dir = -1; }
+
+    steps.push({ x, y, w: stepW, h: stepH, dir });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // 배경은 검정(캔버스 배경도 검정이라 사실상 생략 가능)
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // 계단 그리기
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+
+      // 계단 색(짙은 회색 + 살짝 광택)
+      const grad = ctx.createLinearGradient(s.x, s.y, s.x, s.y + s.h);
+      grad.addColorStop(0, "rgba(255,255,255,0.20)");
+      grad.addColorStop(0.45, "rgba(255,255,255,0.10)");
+      grad.addColorStop(1, "rgba(255,255,255,0.06)");
+
+      ctx.fillStyle = grad;
+      roundRect(s.x, s.y, s.w, s.h, 10);
+      ctx.fill();
+
+      // 테두리
+      ctx.strokeStyle = "rgba(255,255,255,0.14)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 플레이어(동그라미)
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  // ========= Time / Score / Game Over =========
+  function setTimeUI() {
+    const ratio = Math.max(0, Math.min(1, timeLeft / timeTotal));
+    timeBar.style.transform = `scaleX(${ratio})`;
+  }
+
+  function gameOver() {
+    finalScoreEl.textContent = String(score);
+    overlay.classList.add("show");
+  }
+
+  // ========= Move Logic =========
+  function climb(action) {
+    if (overlay.classList.contains("show")) return;
+
+    // action: "forward" or "turn"
+    if (action === "turn") currentDir *= -1;
+
+    // "한 칸 올라감" = 계단 리스트를 한 칸 위로 진행하는 느낌으로
+    // 1) 점수 +1
+    score += 1;
+    scoreEl.textContent = score;
+
+    // 2) 시간 증가: time += (1/5 + 0.1) * time = 0.3 * time
+    // 요청 그대로 적용 (너무 커질 수 있어서 TIME_CAP으로 상한)
+    const add = timeLeft * (1/5 + 0.1);
+    timeLeft = Math.min(TIME_CAP, timeLeft + add);
+    timeTotal = Math.max(timeTotal, timeLeft); // 게이지 기준(늘어나면 게이지가 더 길게 느껴지도록)
+    setTimeUI();
+
+    // 3) 계단을 "아래 하나 지우고 위에 하나 만들기"
+    steps.shift();
+    addNewTopStep();
+
+    // 4) 플레이어를 새 맨 아래 계단 위로 이동
+    const first = steps[0];
+    player.x = first.x + first.w / 2;
+    player.y = first.y - player.r - 2;
+  }
+
+  // ========= Input =========
+  document.getElementById("btnForward").addEventListener("click", () => climb("forward"));
+  document.getElementById("btnTurn").addEventListener("click", () => climb("turn"));
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "arrowright" || k === "d") climb("forward");
+    if (k === "arrowleft"  || k === "a") climb("turn");
+    if (k === "r") buildInitialSteps();
+  });
+
+  restartBtn.addEventListener("click", () => buildInitialSteps());
+
+  // ========= Game Loop =========
+  let lastT = performance.now();
+  function loop(t) {
+    const dt = (t - lastT) / 1000;
+    lastT = t;
+
+    if (!overlay.classList.contains("show")) {
+      timeLeft -= dt;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        setTimeUI();
+        gameOver();
+      } else {
+        setTimeUI();
+      }
+    }
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Start
+  buildInitialSteps();
+  setTimeUI();
+  requestAnimationFrame(loop);
+})();
+</script>
 </body>
 </html>
