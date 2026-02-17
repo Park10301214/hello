@@ -1,264 +1,424 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Stair Game</title>
 
 <style>
-body{
-  margin:0;
-  background:black;
-  overflow:hidden;
-  font-family:monospace;
-  color:white;
-}
+  body{
+    margin:0;
+    background:#000;
+    overflow:hidden;
+    font-family:monospace;
+    color:#fff;
+  }
+  canvas{ display:block; }
 
-canvas{
-  display:block;
-}
+  .hud{
+    position:fixed;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(420px, 86vw);
+    text-align:center;
+    top: calc(18px + env(safe-area-inset-top));
+    user-select:none;
+    pointer-events:none;
+  }
 
-.hud{
-  position:fixed;
-  top:20px;
-  left:50%;
-  transform:translateX(-50%);
-  width:80%;
-  max-width:400px;
-  text-align:center;
-}
+  .bar{
+    width:100%;
+    height:16px;
+    background:#333;
+    border-radius:7px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  .bar-inner{
+    height:100%;
+    width:100%;
+    background:linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.55));
+  }
+  .scoreLine{
+    margin-top:10px;
+    font-weight:bold;
+    letter-spacing:1px;
+  }
 
-.bar{
-  width:100%;
-  height:15px;
-  background:#333;
-  border-radius:5px;
-  overflow:hidden;
-}
+  .controls{
+    position:fixed;
+    left:0; right:0;
+    bottom:0;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom));
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    user-select:none;
+  }
 
-.bar-inner{
-  height:100%;
-  background:white;
-  width:100%;
-}
+  button{
+    border:none;
+    border-radius:22px;
+    background: linear-gradient(to bottom, #bcbcbc, #6f6f6f);
+    box-shadow:
+      0 10px 20px rgba(0,0,0,0.55),
+      0 2px 0 rgba(255,255,255,0.25) inset,
+      0 -8px 18px rgba(0,0,0,0.35) inset;
+    font-weight:900;
+    cursor:pointer;
+    touch-action: manipulation;
+    color:#111;
+  }
+  button:active{ transform: translateY(2px); }
 
-.controls{
-  position:fixed;
-  bottom:20px;
-  left:0;
-  right:0;
-  display:flex;
-  justify-content:space-between;
-  padding:0 20px;
-}
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    font-weight:900;
+    text-align:center;
+    padding:20px;
+  }
+  .hidden{ display:none; }
 
-button{
-  border:none;
-  border-radius:20px;
-  background:linear-gradient(to bottom,#aaa,#666);
-  font-weight:bold;
-  cursor:pointer;
-}
-
-.overlay{
-  position:fixed;
-  inset:0;
-  background:black;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  font-size:22px;
-  font-weight:bold;
-}
-
-.hidden{
-  display:none;
-}
+  .overlayTitle{ font-size:22px; margin-bottom:18px; }
+  .overlayText{ font-size:14px; opacity:0.95; margin-bottom:18px; }
 </style>
 </head>
 
 <body>
-
 <canvas id="game"></canvas>
 
+<!-- START -->
 <div id="startScreen" class="overlay">
-  <div>SELECT DEVICE</div>
-  <button onclick="startGame('pc')" style="margin:20px;width:200px;height:60px;">COMPUTER</button>
-  <button onclick="startGame('phone')" style="margin:10px;width:200px;height:60px;">PHONE</button>
+  <div class="overlayTitle">SELECT DEVICE</div>
+  <button onclick="startGame('pc')" style="width:220px;height:62px;margin:8px;">COMPUTER</button>
+  <button onclick="startGame('phone')" style="width:220px;height:62px;margin:8px;">PHONE</button>
 </div>
 
+<!-- HUD -->
 <div id="hud" class="hud hidden">
   <div class="bar"><div id="timeBar" class="bar-inner"></div></div>
-  <div style="margin-top:8px;">SCORE: <span id="score">0</span></div>
+  <div class="scoreLine">SCORE: <span id="score">0</span></div>
 </div>
 
+<!-- CONTROLS -->
 <div id="controls" class="controls hidden">
   <button id="turn">TURN</button>
   <button id="forward">FORWARD</button>
 </div>
 
+<!-- GAME OVER -->
 <div id="gameOver" class="overlay hidden">
-  <div>GAME OVER</div>
-  <div style="margin:10px;">SCORE: <span id="finalScore"></span></div>
-  <button onclick="resetGame()" style="width:200px;height:60px;">RESTART</button>
+  <div class="overlayTitle">GAME OVER</div>
+  <div class="overlayText">SCORE: <span id="finalScore">0</span></div>
+  <button onclick="resetGame()" style="width:220px;height:62px;">RESTART</button>
 </div>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-let isPhone=false;
+  const scoreEl = document.getElementById("score");
+  const timeBar = document.getElementById("timeBar");
+  const startScreen = document.getElementById("startScreen");
+  const hud = document.getElementById("hud");
+  const controls = document.getElementById("controls");
+  const gameOverScreen = document.getElementById("gameOver");
+  const finalScoreEl = document.getElementById("finalScore");
 
-let steps=[];
-let score=0;
-let timeLeft=10;
-let direction=1;
+  let isPhone = false;
 
-let STEP_W=120;
-let STEP_H=30;
-let STEP_GAP=60;
-const STEP_COUNT=10;
+  // ===== Game params (기기 선택에 따라 값 바뀜)
+  let STEP_W = 140;
+  let STEP_H = 34;
+  let STEP_GAP = 70;
+  const STEP_COUNT = 10;
 
-const player={x:0,y:0,r:15};
+  // ===== State
+  let steps = [];
+  let score = 0;
+  let timeLeft = 10;
+  let direction = 1; // 1 오른쪽 / -1 왼쪽
 
-function startGame(type){
-  isPhone = type==="phone";
+  const player = { x:0, y:0, r:16 };
 
-  document.getElementById("startScreen").classList.add("hidden");
-  document.getElementById("hud").classList.remove("hidden");
-  document.getElementById("controls").classList.remove("hidden");
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
-  if(isPhone){
-    STEP_W = 90;
-    STEP_H = 25;
-    STEP_GAP = 50;
-    document.querySelectorAll("button").forEach(b=>{
-      b.style.height="80px";
-      b.style.fontSize="18px";
-    });
-  }else{
-    STEP_W = 140;
-    STEP_H = 35;
-    STEP_GAP = 70;
+  function resizeCanvas(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
   }
 
-  resetGame();
-}
+  window.addEventListener("resize", () => {
+    resizeCanvas();
+    // 화면 바뀌면 계단이 밖으로 나가는 걸 막으려고 리셋
+    if (!startScreen.classList.contains("hidden")) return;
+    resetGame();
+  });
 
-function resetGame(){
-  document.getElementById("gameOver").classList.add("hidden");
-  steps=[];
-  score=0;
-  timeLeft=10;
-  direction=1;
-  document.getElementById("score").textContent=0;
+  resizeCanvas();
 
-  let x=canvas.width/2-STEP_W/2;
-  let y=canvas.height*0.8;
+  function startGame(type){
+    isPhone = (type === "phone");
 
-  for(let i=0;i<STEP_COUNT;i++){
-    steps.push({x,y});
-    if(Math.random()<0.7){
-      x+=direction*STEP_W*0.6;
-    }else{
-      direction*=-1;
-      x+=direction*STEP_W*0.6;
+    // 기기별 크기 조정
+    if (isPhone){
+      STEP_W = 96;
+      STEP_H = 26;
+      STEP_GAP = 56;
+      player.r = 14;
+
+      // 버튼 크게
+      document.getElementById("turn").style.width = "42vw";
+      document.getElementById("forward").style.width = "42vw";
+      document.getElementById("turn").style.height = "82px";
+      document.getElementById("forward").style.height = "82px";
+      document.getElementById("turn").style.fontSize = "18px";
+      document.getElementById("forward").style.fontSize = "18px";
+    } else {
+      STEP_W = 150;
+      STEP_H = 36;
+      STEP_GAP = 74;
+      player.r = 16;
+
+      document.getElementById("turn").style.width = "260px";
+      document.getElementById("forward").style.width = "260px";
+      document.getElementById("turn").style.height = "72px";
+      document.getElementById("forward").style.height = "72px";
+      document.getElementById("turn").style.fontSize = "16px";
+      document.getElementById("forward").style.fontSize = "16px";
     }
-    y-=STEP_GAP;
+
+    startScreen.classList.add("hidden");
+    hud.classList.remove("hidden");
+    controls.classList.remove("hidden");
+
+    resetGame();
   }
 
-  player.x=steps[0].x+STEP_W/2;
-  player.y=steps[0].y-player.r;
-}
+  function resetGame(){
+    gameOverScreen.classList.add("hidden");
 
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+    steps = [];
+    score = 0;
+    timeLeft = 10;
+    direction = 1;
+    scoreEl.textContent = "0";
+    updateTimeUI();
 
-  ctx.fillStyle="rgba(200,200,200,0.2)";
-  for(let s of steps){
+    // 시작 위치
+    let x = canvas.width/2 - STEP_W/2;
+    let y = canvas.height * 0.80;
+
+    const margin = 16;
+    const minX = margin;
+    const maxX = canvas.width - margin - STEP_W;
+
+    // 10개 계단 생성 (70% 같은 방향 유지, 30% 전환)
+    for (let i=0; i<STEP_COUNT; i++){
+      steps.push({ x, y });
+
+      if (Math.random() >= 0.7) direction *= -1;
+
+      let nextX = x + direction * STEP_W * 0.62;
+
+      // 화면 밖이면 방향 튕기기
+      if (nextX < minX || nextX > maxX){
+        direction *= -1;
+        nextX = x + direction * STEP_W * 0.62;
+      }
+
+      x = clamp(nextX, minX, maxX);
+      y -= STEP_GAP;
+    }
+
+    // 플레이어는 맨 아래 계단 위
+    player.x = steps[0].x + STEP_W/2;
+    player.y = steps[0].y - player.r - 2;
+  }
+
+  function updateTimeUI(){
+    // timeLeft가 0~10 범위라고 가정(늘어날 수 있어서, 10 기준으로 줄어드는 느낌 유지)
+    const ratio = clamp(timeLeft / 10, 0, 1);
+    timeBar.style.width = (ratio * 100) + "%";
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // 배경
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // 계단
+    for (let s of steps){
+      const gx = s.x, gy = s.y;
+
+      // 살짝 광택 느낌(그라데이션)
+      const grad = ctx.createLinearGradient(gx, gy, gx, gy + STEP_H);
+      grad.addColorStop(0, "rgba(255,255,255,0.22)");
+      grad.addColorStop(0.5, "rgba(255,255,255,0.12)");
+      grad.addColorStop(1, "rgba(255,255,255,0.06)");
+
+      ctx.fillStyle = grad;
+      roundRect(gx, gy, STEP_W, STEP_H, 10);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 플레이어(동그라미)
     ctx.beginPath();
-    ctx.roundRect(s.x,s.y,STEP_W,STEP_H,10);
+    ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
     ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 
-  ctx.beginPath();
-  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
-  ctx.fillStyle="white";
-  ctx.fill();
-}
-
-function scroll(){
-  for(let s of steps){
-    s.y+=STEP_GAP;
-  }
-}
-
-function addStep(){
-  let last=steps[steps.length-1];
-  let x=last.x;
-  let y=last.y-STEP_GAP;
-
-  if(Math.random()<0.7){
-    x+=direction*STEP_W*0.6;
-  }else{
-    direction*=-1;
-    x+=direction*STEP_W*0.6;
+  function roundRect(x,y,w,h,r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
   }
 
-  steps.push({x,y});
-  steps.shift();
-}
+  function scrollStepsDown(amount){
+    for (let s of steps) s.y += amount;
+  }
 
-function climb(turning){
-  if(turning) direction*=-1;
+  function addTopStep(){
+    const last = steps[steps.length - 1];
+    let x = last.x;
+    let y = last.y - STEP_GAP;
 
-  score++;
-  document.getElementById("score").textContent=score;
+    const margin = 16;
+    const minX = margin;
+    const maxX = canvas.width - margin - STEP_W;
 
-  timeLeft += timeLeft*0.3;
+    // 70% 유지 / 30% 전환
+    if (Math.random() >= 0.7) direction *= -1;
 
-  scroll();
-  addStep();
+    let nextX = x + direction * STEP_W * 0.62;
 
-  player.x=steps[0].x+STEP_W/2;
-  player.y=steps[0].y-player.r;
-}
+    // 화면 밖이면 방향 튕기기
+    if (nextX < minX || nextX > maxX){
+      direction *= -1;
+      nextX = x + direction * STEP_W * 0.62;
+    }
 
-document.getElementById("forward").onclick=()=>climb(false);
-document.getElementById("turn").onclick=()=>climb(true);
+    x = clamp(nextX, minX, maxX);
 
-function gameOver(){
-  document.getElementById("finalScore").textContent=score;
-  document.getElementById("gameOver").classList.remove("hidden");
-}
+    steps.push({ x, y });
+  }
 
-function loop(){
-  if(!document.getElementById("gameOver").classList.contains("hidden")){
+  function removeBottomIfOffscreen(){
+    // 맨 아래 계단이 화면 아래로 완전히 내려가면 제거
+    while (steps.length > STEP_COUNT && steps[0].y > canvas.height + STEP_H + 10){
+      steps.shift();
+    }
+    // 항상 STEP_COUNT 유지(부족하면 위에 더 추가)
+    while (steps.length < STEP_COUNT){
+      addTopStep();
+    }
+  }
+
+  function gameOver(){
+    finalScoreEl.textContent = String(score);
+    gameOverScreen.classList.remove("hidden");
+  }
+
+  // ====== 버튼 동작
+  // 오른쪽: 현재 방향 그대로 "앞으로"
+  // 왼쪽: 방향을 바꾸고 "앞으로" (뒤로 한 칸 아님)
+  function climb(turning){
+    if (!gameOverScreen.classList.contains("hidden")) return;
+
+    if (turning) direction *= -1;
+
+    score += 1;
+    scoreEl.textContent = String(score);
+
+    // 시간 추가: time += 0.3*time
+    timeLeft += timeLeft * 0.3;
+
+    // 올라가는 느낌: 계단이 아래로 내려감(플레이어는 거의 고정)
+    scrollStepsDown(STEP_GAP);
+
+    // 맨 위 새 계단 추가 + 아래 벗어난 거 정리
+    addTopStep();
+    removeBottomIfOffscreen();
+
+    // 플레이어를 맨 아래 계단 위로 "붙이기"
+    player.x = steps[0].x + STEP_W/2;
+    player.y = steps[0].y - player.r - 2;
+
+    updateTimeUI();
+  }
+
+  document.getElementById("forward").addEventListener("click", () => climb(false));
+  document.getElementById("turn").addEventListener("click", () => climb(true));
+
+  // 키보드(PC용)
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "arrowright" || k === "d") climb(false);
+    if (k === "arrowleft"  || k === "a") climb(true);
+    if (k === "r") resetGame();
+  });
+
+  // ===== 떨어짐 판정: 현재 플레이어가 "맨 아래 계단" 위에 붙어있지 않으면 떨어짐
+  // (지금 게임은 버튼 눌러서만 이동하니까,
+  //  턴/포워드 타이밍이 꼬여서 계단 위치가 이상해졌을 때만 떨어지게 간단 처리)
+  function checkFall(){
+    const s = steps[0];
+    const onStep =
+      player.x >= s.x && player.x <= s.x + STEP_W &&
+      (player.y + player.r >= s.y - 2) && (player.y + player.r <= s.y + STEP_H + 6);
+
+    if (!onStep){
+      player.y += 9; // 떨어지는 속도
+      if (player.y - player.r > canvas.height) gameOver();
+    }
+  }
+
+  // ===== 시간: 점수 높을수록 더 빨리 감소
+  let last = performance.now();
+  function loop(t){
+    const dt = (t - last) / 1000;
+    last = t;
+
+    if (startScreen.classList.contains("hidden") && gameOverScreen.classList.contains("hidden")){
+      const speed = 1 + score * 0.06; // 점수 올라갈수록 더 빨리 닳음
+      timeLeft -= dt * speed;
+
+      if (timeLeft <= 0){
+        timeLeft = 0;
+        updateTimeUI();
+        gameOver();
+      } else {
+        updateTimeUI();
+      }
+
+      checkFall();
+    }
+
     draw();
     requestAnimationFrame(loop);
-    return;
   }
-
-  timeLeft -= 0.02*(1+score*0.05);
-
-  if(timeLeft<=0){
-    gameOver();
-  }
-
-  document.getElementById("timeBar").style.width=Math.max(0,timeLeft*10)+"%";
-
-  if(player.y>canvas.height){
-    gameOver();
-  }
-
-  draw();
   requestAnimationFrame(loop);
-}
-loop();
 </script>
-
 </body>
 </html>
