@@ -1,32 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>park의 첫 웹사이트</title>
+    <title>카운터 사이트</title>
     <style>
         body {
-            background-color: #111;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #111;
             color: white;
-            text-align: center;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
         }
+
+        #number {
+            font-size: 60px;
+            margin-bottom: 40px;
+        }
+
         button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 10px;
+            width: 200px;
+            height: 70px;
+            font-size: 20px;
+            border-radius: 15px;   /* 모서리 둥글게 */
             border: none;
             cursor: pointer;
+            background: #0072ff;
+            color: white;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            background: #005ad1;
         }
     </style>
 </head>
 <body>
 
-    <h1 id="title">안녕 👋 나는 park</h1>
-    <p>웹 개발 시작 🔥</p>
-    <button onclick="changeText()">눌러봐</button>
+    <div id="number">0</div>
+
+    <button onclick="increase()">눌러봐</button>
 
     <script>
-        function changeText() {
-            document.getElementById("title").innerText = "미래의 AI 개발자 😎";
+        let count = 0;
+
+        function increase() {
+            count = count + 1;
+            document.getElementById("number").innerText = count;
         }
     </script>
 
