@@ -1,62 +1,234 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <title>카운터 사이트</title>
-    <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: #111;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stair Game</title>
 
-        #number {
-            font-size: 60px;
-            margin-bottom: 40px;
-        }
+<style>
+body {
+  margin:0;
+  background:#000;
+  overflow:hidden;
+  font-family:monospace;
+}
 
-        button {
-            width: 200px;
-            height: 70px;
-            font-size: 20px;
-            border-radius: 15px;   /* 모서리 둥글게 */
-            border: none;
-            cursor: pointer;
-            background: #0072ff;
-            color: white;
-            transition: 0.2s;
-        }
+canvas {
+  display:block;
+}
 
-        button:hover {
-            transform: scale(1.05);
-            background: #005ad1;
-        }
-    </style>
+.controls {
+  position:fixed;
+  bottom:20px;
+  left:0;
+  right:0;
+  display:flex;
+  justify-content:space-between;
+  padding:0 20px;
+}
+
+button {
+  width:45%;
+  height:70px;
+  border-radius:20px;
+  border:none;
+  background:linear-gradient(to bottom,#aaa,#666);
+  font-weight:bold;
+  font-size:16px;
+}
+
+.hud {
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:300px;
+  text-align:center;
+  color:white;
+}
+
+.bar {
+  width:100%;
+  height:15px;
+  background:#333;
+  border-radius:5px;
+  overflow:hidden;
+}
+
+.bar-inner {
+  height:100%;
+  background:white;
+  width:100%;
+}
+
+.overlay {
+  position:fixed;
+  inset:0;
+  background:black;
+  color:white;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  font-weight:bold;
+  font-size:24px;
+}
+</style>
 </head>
+
 <body>
 
-    <div id="number">0</div>
+<canvas id="game"></canvas>
 
-    <button onclick="increase()">안누르면바보</button>
+<div class="hud">
+  <div class="bar"><div id="timeBar" class="bar-inner"></div></div>
+  <div style="margin-top:8px;">SCORE: <span id="score">0</span></div>
+</div>
 
-    <script>
-        let count = 0;
+<div class="controls">
+  <button id="turn">TURN</button>
+  <button id="forward">FORWARD</button>
+</div>
 
-        function increase() {
-            count = count + 1;
-            document.getElementById("number").innerText = count;
-        if (count>10) {document.getElementById("number").innerText = "김지현❤️손정음";}
-        }
-    </script>
+<div id="overlay" class="overlay">
+  <div>GAME OVER</div>
+  <div style="margin-top:10px;">SCORE: <span id="finalScore"></span></div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreEl = document.getElementById("score");
+const timeBar = document.getElementById("timeBar");
+const overlay = document.getElementById("overlay");
+const finalScore = document.getElementById("finalScore");
+
+let steps = [];
+let score = 0;
+let timeLeft = 10;
+let direction = 1; // 1 오른쪽, -1 왼쪽
+const STEP_COUNT = 10;
+const STEP_W = 120;
+const STEP_H = 30;
+const STEP_GAP = 60;
+
+const player = { x:0, y:0, r:15 };
+
+function init() {
+  steps=[];
+  score=0;
+  timeLeft=10;
+  direction=1;
+  scoreEl.textContent=0;
+  overlay.style.display="none";
+
+  let x=canvas.width/2 - STEP_W/2;
+  let y=canvas.height*0.8;
+
+  for(let i=0;i<STEP_COUNT;i++){
+    steps.push({x,y});
+    if(Math.random()<0.7){
+      x+=direction*STEP_W*0.6;
+    }else{
+      direction*=-1;
+      x+=direction*STEP_W*0.6;
+    }
+    y-=STEP_GAP;
+  }
+
+  player.x = steps[0].x + STEP_W/2;
+  player.y = steps[0].y - player.r;
+}
+init();
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // 계단
+  ctx.fillStyle="rgba(200,200,200,0.2)";
+  for(let s of steps){
+    ctx.beginPath();
+    ctx.roundRect(s.x,s.y,STEP_W,STEP_H,10);
+    ctx.fill();
+  }
+
+  // 플레이어
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.fillStyle="white";
+  ctx.fill();
+}
+
+function scroll() {
+  for(let s of steps){
+    s.y+=STEP_GAP;
+  }
+}
+
+function addStep() {
+  let last = steps[steps.length-1];
+  let x=last.x;
+  let y=last.y-STEP_GAP;
+
+  if(Math.random()<0.7){
+    x+=direction*STEP_W*0.6;
+  }else{
+    direction*=-1;
+    x+=direction*STEP_W*0.6;
+  }
+
+  steps.push({x,y});
+  steps.shift();
+}
+
+function climb(turning){
+  if(overlay.style.display==="flex") return;
+
+  if(turning) direction*=-1; // 방향만 바꾸고
+
+  score++;
+  scoreEl.textContent=score;
+
+  timeLeft += timeLeft*(0.2+0.1); // 시간 증가
+  scroll();
+  addStep();
+
+  player.x = steps[0].x + STEP_W/2;
+  player.y = steps[0].y - player.r;
+}
+
+document.getElementById("forward").onclick=()=>climb(false);
+document.getElementById("turn").onclick=()=>climb(true);
+
+function gameOver(){
+  overlay.style.display="flex";
+  finalScore.textContent=score;
+}
+
+function loop(){
+  if(overlay.style.display!=="flex"){
+    timeLeft -= 0.02*(1+score*0.05); // 점점 빨라짐
+
+    if(timeLeft<=0){
+      gameOver();
+    }
+
+    timeBar.style.width = Math.max(0,timeLeft*10)+"%";
+
+    // 떨어졌는지 체크
+    if(player.y > canvas.height){
+      gameOver();
+    }
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
 
 </body>
 </html>
-
-
-
-
