@@ -6,18 +6,43 @@
 <title>Stair Game</title>
 
 <style>
-body {
+body{
   margin:0;
-  background:#000;
+  background:black;
   overflow:hidden;
   font-family:monospace;
+  color:white;
 }
 
-canvas {
+canvas{
   display:block;
 }
 
-.controls {
+.hud{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:80%;
+  max-width:400px;
+  text-align:center;
+}
+
+.bar{
+  width:100%;
+  height:15px;
+  background:#333;
+  border-radius:5px;
+  overflow:hidden;
+}
+
+.bar-inner{
+  height:100%;
+  background:white;
+  width:100%;
+}
+
+.controls{
   position:fixed;
   bottom:20px;
   left:0;
@@ -27,51 +52,28 @@ canvas {
   padding:0 20px;
 }
 
-button {
-  width:45%;
-  height:70px;
-  border-radius:20px;
+button{
   border:none;
+  border-radius:20px;
   background:linear-gradient(to bottom,#aaa,#666);
   font-weight:bold;
-  font-size:16px;
+  cursor:pointer;
 }
 
-.hud {
-  position:fixed;
-  top:20px;
-  left:50%;
-  transform:translateX(-50%);
-  width:300px;
-  text-align:center;
-  color:white;
-}
-
-.bar {
-  width:100%;
-  height:15px;
-  background:#333;
-  border-radius:5px;
-  overflow:hidden;
-}
-
-.bar-inner {
-  height:100%;
-  background:white;
-  width:100%;
-}
-
-.overlay {
+.overlay{
   position:fixed;
   inset:0;
   background:black;
-  color:white;
-  display:none;
+  display:flex;
   align-items:center;
   justify-content:center;
   flex-direction:column;
+  font-size:22px;
   font-weight:bold;
-  font-size:24px;
+}
+
+.hidden{
+  display:none;
 }
 </style>
 </head>
@@ -80,52 +82,81 @@ button {
 
 <canvas id="game"></canvas>
 
-<div class="hud">
+<div id="startScreen" class="overlay">
+  <div>SELECT DEVICE</div>
+  <button onclick="startGame('pc')" style="margin:20px;width:200px;height:60px;">COMPUTER</button>
+  <button onclick="startGame('phone')" style="margin:10px;width:200px;height:60px;">PHONE</button>
+</div>
+
+<div id="hud" class="hud hidden">
   <div class="bar"><div id="timeBar" class="bar-inner"></div></div>
   <div style="margin-top:8px;">SCORE: <span id="score">0</span></div>
 </div>
 
-<div class="controls">
+<div id="controls" class="controls hidden">
   <button id="turn">TURN</button>
   <button id="forward">FORWARD</button>
 </div>
 
-<div id="overlay" class="overlay">
+<div id="gameOver" class="overlay hidden">
   <div>GAME OVER</div>
-  <div style="margin-top:10px;">SCORE: <span id="finalScore"></span></div>
+  <div style="margin:10px;">SCORE: <span id="finalScore"></span></div>
+  <button onclick="resetGame()" style="width:200px;height:60px;">RESTART</button>
 </div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
 
-const scoreEl = document.getElementById("score");
-const timeBar = document.getElementById("timeBar");
-const overlay = document.getElementById("overlay");
-const finalScore = document.getElementById("finalScore");
+let isPhone=false;
 
-let steps = [];
-let score = 0;
-let timeLeft = 10;
-let direction = 1; // 1 오른쪽, -1 왼쪽
-const STEP_COUNT = 10;
-const STEP_W = 120;
-const STEP_H = 30;
-const STEP_GAP = 60;
+let steps=[];
+let score=0;
+let timeLeft=10;
+let direction=1;
 
-const player = { x:0, y:0, r:15 };
+let STEP_W=120;
+let STEP_H=30;
+let STEP_GAP=60;
+const STEP_COUNT=10;
 
-function init() {
+const player={x:0,y:0,r:15};
+
+function startGame(type){
+  isPhone = type==="phone";
+
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("hud").classList.remove("hidden");
+  document.getElementById("controls").classList.remove("hidden");
+
+  if(isPhone){
+    STEP_W = 90;
+    STEP_H = 25;
+    STEP_GAP = 50;
+    document.querySelectorAll("button").forEach(b=>{
+      b.style.height="80px";
+      b.style.fontSize="18px";
+    });
+  }else{
+    STEP_W = 140;
+    STEP_H = 35;
+    STEP_GAP = 70;
+  }
+
+  resetGame();
+}
+
+function resetGame(){
+  document.getElementById("gameOver").classList.add("hidden");
   steps=[];
   score=0;
   timeLeft=10;
   direction=1;
-  scoreEl.textContent=0;
-  overlay.style.display="none";
+  document.getElementById("score").textContent=0;
 
-  let x=canvas.width/2 - STEP_W/2;
+  let x=canvas.width/2-STEP_W/2;
   let y=canvas.height*0.8;
 
   for(let i=0;i<STEP_COUNT;i++){
@@ -139,15 +170,13 @@ function init() {
     y-=STEP_GAP;
   }
 
-  player.x = steps[0].x + STEP_W/2;
-  player.y = steps[0].y - player.r;
+  player.x=steps[0].x+STEP_W/2;
+  player.y=steps[0].y-player.r;
 }
-init();
 
-function draw() {
+function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // 계단
   ctx.fillStyle="rgba(200,200,200,0.2)";
   for(let s of steps){
     ctx.beginPath();
@@ -155,21 +184,20 @@ function draw() {
     ctx.fill();
   }
 
-  // 플레이어
   ctx.beginPath();
   ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
   ctx.fillStyle="white";
   ctx.fill();
 }
 
-function scroll() {
+function scroll(){
   for(let s of steps){
     s.y+=STEP_GAP;
   }
 }
 
-function addStep() {
-  let last = steps[steps.length-1];
+function addStep(){
+  let last=steps[steps.length-1];
   let x=last.x;
   let y=last.y-STEP_GAP;
 
@@ -185,43 +213,45 @@ function addStep() {
 }
 
 function climb(turning){
-  if(overlay.style.display==="flex") return;
-
-  if(turning) direction*=-1; // 방향만 바꾸고
+  if(turning) direction*=-1;
 
   score++;
-  scoreEl.textContent=score;
+  document.getElementById("score").textContent=score;
 
-  timeLeft += timeLeft*(0.2+0.1); // 시간 증가
+  timeLeft += timeLeft*0.3;
+
   scroll();
   addStep();
 
-  player.x = steps[0].x + STEP_W/2;
-  player.y = steps[0].y - player.r;
+  player.x=steps[0].x+STEP_W/2;
+  player.y=steps[0].y-player.r;
 }
 
 document.getElementById("forward").onclick=()=>climb(false);
 document.getElementById("turn").onclick=()=>climb(true);
 
 function gameOver(){
-  overlay.style.display="flex";
-  finalScore.textContent=score;
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("gameOver").classList.remove("hidden");
 }
 
 function loop(){
-  if(overlay.style.display!=="flex"){
-    timeLeft -= 0.02*(1+score*0.05); // 점점 빨라짐
+  if(!document.getElementById("gameOver").classList.contains("hidden")){
+    draw();
+    requestAnimationFrame(loop);
+    return;
+  }
 
-    if(timeLeft<=0){
-      gameOver();
-    }
+  timeLeft -= 0.02*(1+score*0.05);
 
-    timeBar.style.width = Math.max(0,timeLeft*10)+"%";
+  if(timeLeft<=0){
+    gameOver();
+  }
 
-    // 떨어졌는지 체크
-    if(player.y > canvas.height){
-      gameOver();
-    }
+  document.getElementById("timeBar").style.width=Math.max(0,timeLeft*10)+"%";
+
+  if(player.y>canvas.height){
+    gameOver();
   }
 
   draw();
